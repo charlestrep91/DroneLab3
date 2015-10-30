@@ -27,12 +27,12 @@ typedef union uPwmStream
 	char bytes[5];
 	struct
 	{
-		char cmd		:3;
-		int PwmMoteur1	:9;
-		int PwmMoteur2	:9;
-		int PwmMoteur3	:9;
-		int PwmMoteur4	:9;
 		char xVal		:1;
+		int PwmMoteur4	:9;
+		int PwmMoteur3	:9;
+		int PwmMoteur2	:9;
+		int PwmMoteur1	:9;
+		char cmd		:3;
 	}ele;
 }tPwmStream;
 
@@ -191,6 +191,7 @@ void *MotorTask ( void *ptr )
 /* Tache qui transmet les nouvelles valeurs de vitesse */
 /* à chaque moteur à interval régulier (5 ms).         */
 	struct timespec Delai;
+	MotorStruct *Motor = (MotorStruct*)ptr;
 	clock_gettime(CLOCK_REALTIME, &Delai);
 
 	MotorActivated = 1;
@@ -204,6 +205,9 @@ void *MotorTask ( void *ptr )
 		}
 		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &Delai, NULL);
 //		printf("MotorTask time: %d seconds and %d ns\n", Delai.tv_sec, Delai.tv_nsec);
+//		SetPWM(Motor->file, 256 , 256 , 256 , 256);
+		SetLed(Motor->file,0xF,0);
+
 	}
 	pthread_exit(0); /* exit thread */
 }
@@ -221,7 +225,7 @@ int MotorInit (MotorStruct *Motor) {
 	MotorPortInit(Motor);
 //	if(result == 0)
 //	{
-		pthread_create(&Motor->MotorThread, PTHREAD_CREATE_JOINABLE, MotorTask, (void *)MotorTaskPriority);
+		pthread_create(&Motor->MotorThread, PTHREAD_CREATE_JOINABLE, MotorTask, (void *)Motor);
 		printf("MotorThread created...");
 //	}
 //	else
