@@ -14,11 +14,65 @@
 #define SleepDelayNanos 5000000
 #define MotorTaskPriority	1
 
+#define WRITE_PWM_CMD 0b001
+#define WRITE_LED_CMD 0b011
+
 extern sem_t	MotorTimerSem;
 extern int		MotorActivated;
 
 pthread_barrier_t 	MotorStartBarrier;
+//SetPwm union definition
+typedef union uPwmStream
+{
+	char bytes[5];
+	struct
+	{
+		char cmd		:3;
+		int PwmMoteur1	:9;
+		int PwmMoteur2	:9;
+		int PwmMoteur3	:9;
+		int PwmMoteur4	:9;
+		char xVal		:1;
+	}ele;
+}tPwmStream;
 
+//SetLed union definition
+typedef union uLedStream
+{
+	char bytes[2];
+	struct
+	{
+		char cmd		:3;
+		int  RedLed		:4;
+		char xVal1		:4;
+		int  GrnLed		:4;
+		char xVal2		:1;
+	}ele;
+}tLedStream;
+
+
+
+pthread_barrier_t 	MotorStartBarrier;
+
+void SetPWM(int file, int pwm1, int pwm2, int pwm3, int pwm4)
+{
+	tPwmStream pwmData;
+	pwmData.ele.cmd=WRITE_PWM_CMD;
+	pwmData.ele.PwmMoteur1=pwm1;
+	pwmData.ele.PwmMoteur2=pwm2;
+	pwmData.ele.PwmMoteur3=pwm3;
+	pwmData.ele.PwmMoteur4=pwm4;
+    write(file,pwmData.bytes,5);
+}
+
+void SetLed(int file, char redLed, char grnLed)
+{
+	tLedStream ledData;
+	ledData.ele.cmd=WRITE_LED_CMD;
+	ledData.ele.RedLed=redLed;
+	ledData.ele.GrnLed=grnLed;
+    write(file,ledData.bytes,2);
+}
 
 int gpio_set (int nr, int val)  {
 	char cmdline[200];
