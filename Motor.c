@@ -156,7 +156,7 @@ int MotorPortInit(MotorStruct *Motor) {
 		usleep(2*TimeDelay);
 	}
 
-	//all select lines active
+	//all select lines actives
 	gpio_set(GPIO_M1, -1);
 	gpio_set(GPIO_M2, -1);
 	gpio_set(GPIO_M3, -1);
