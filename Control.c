@@ -10,6 +10,7 @@
 extern sem_t 		ControlTimerSem;
 extern int			ControlActivated;
 
+#define POLICY SCHED_FIFO
 
 pthread_barrier_t 	ControlStartBarrier;
 
@@ -213,7 +214,7 @@ void *ControlTask ( void *ptr ) {
 
 		PWM[1] = PWM[2] = PWM[3] = PWM[0];
 
-		pthread_spin_lock(&(Motor->MotorLock));
+	pthread_spin_lock(&(Motor->MotorLock));
    	Motor->pwm[0] = (uint16_t)(PWM[0]*0x01ff);
    	Motor->pwm[1] = (uint16_t)(PWM[1]*0x01ff);
    	Motor->pwm[2] = (uint16_t)(PWM[2]*0x01ff);
@@ -238,6 +239,11 @@ int ControlInit (ControlStruct *Control) {
 /* de créer la Tâche ControlTask() qui va faire calculer      */
 /* les nouvelles vitesses des moteurs, basé sur l'attitude    */
 /* désirée du drone et son attitude actuelle (voir capteurs). */
+
+	//pthread_barrier_init(&ControlStartBarrier, NULL, 2);
+	//pthread_create(&Control->ControlThread, PTHREAD_CREATE_JOINABLE, ControlTask, (void *)Control);
+	printf("ControlThread created...");
+
 	return 0;
 }
 
@@ -248,6 +254,9 @@ int ControlStart (void) {
 /* Ici, vous devriez le travail du contrôleur (loi de commande) du drone. */ 
 /* Les capteurs ainsi que tout le reste du système devrait être           */
 /* prêt à faire leur travail et il ne reste plus qu'à tout démarrer.      */
+	//ControlActivated=1;
+	//pthread_barrier_wait(&(ControlStartBarrier));
+	//pthread_barrier_destroy(&ControlStartBarrier);
 	return retval;
 }
 
@@ -256,6 +265,7 @@ int ControlStart (void) {
 int ControlStop (ControlStruct *Control) {
 /* A faire! */
 /* Ici, vous devriez arrêter le contrôleur du drone.    */ 
+//	ControlActivated=0;
 	return 0;
 }
 

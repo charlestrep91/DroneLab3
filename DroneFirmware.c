@@ -219,6 +219,18 @@ int main(int argc, char *argv[]) {
 	while (ch != 'q') {
 		sem_wait(&MainTimerSem);
 		ch = tolower(getchar_nonblock());
+		if(ch=='+')
+		{
+			pthread_spin_lock(&(Motor.MotorLock));
+			Motor.pwm[1]+=10;
+			pthread_spin_unlock(&(Motor.MotorLock));
+		}
+		if(ch=='-')
+		{
+			pthread_spin_lock(&(Motor.MotorLock));
+			Motor.pwm[1]-=10;
+			pthread_spin_unlock(&(Motor.MotorLock));
+		}
 	}
 
 	MavlinkStop(&Mavlink);
