@@ -22,24 +22,69 @@ uint8_t  SensorsActivated 	= 0;
 uint8_t  LogActivated  	  	= 0;
 uint8_t  numLogOutput 	  	= 0;
 
+unsigned long SensorPeriods[] = {ACCEL_PERIOD, GYRO_PERIOD, SONAR_PERIOD, BAROM_PERIOD, MAGNETO_PERIOD};
 
-void *SensorTask ( void *ptr ) {
-/* A faire! */
-/* Tache qui sera instancié pour chaque sensor. Elle s'occupe d'aller */
-/* chercher les donnees du sensor.                                    */
-	while (SensorsActivated) {
-//		DOSOMETHING();
+void *SensorTask ( void *ptr )
+{
+	SensorStruct *Sensor = (SensorStruct*)ptr;
+	struct timespec Delai;
+	int SleepDelayNanos =SensorPeriods[Sensor->type];
+
+	printf("SensorTask: %s task running...\n",Sensor->Name);
+	clock_gettime(CLOCK_REALTIME, &Delai);
+//	SensorsActivated = 1;
+
+	pthread_barrier_wait(&SensorStartBarrier);
+	while (SensorsActivated)
+	{
+		Delai.tv_nsec += SleepDelayNanos;
+		if(Delai.tv_nsec >= 1000000000)
+		{
+			Delai.tv_sec += 1;
+			Delai.tv_nsec -= 1000000000;
+		}
+		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &Delai, NULL);
+
+		//check if received entire structure of data
+		if(read(Sensor->File, &Sensor->RawData, sizeof(SensorRawData)) == sizeof(SensorRawData))
+		{
+			//Les données ont été lues et placées dans RawData
+		}
+		else
+		{
+			printf("SensorTask: %s task got incomplete data...\n",Sensor->Name);
+			Sensor->RawData->status = -1; //invalid data
+		}
+
+
 	}
 	pthread_exit(0); /* exit thread */
 }
 
 
-int SensorsInit (SensorStruct SensorTab[NUM_SENSOR]) {
+int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
+{
 /* A faire! */
-/* Ici, vous devriez faire l'initialisation de chacun des capteurs.  */ 
+/* Ici, vous devriez faire l'initialisation de chacun des capteurs.  */
 /* C'est-à-dire de faire les initialisations requises, telles que    */
 /* ouvrir les fichiers des capteurs, et de créer les Tâches qui vont */
 /* s'occuper de réceptionner les échantillons des capteurs.          */
+	int i;
+	printf("SensorInit...\n");
+	pthread_barrier_init(&SensorStartBarrier, NULL, NUM_SENSOR+1);
+
+	for(i=0; i<NUM_SENSOR; i++)
+	{
+		SensorTab[i].File = open(SensorTab[i].DevName, O_RDONLY);
+		if (SensorTab[i].File < 0)
+		{
+			printf("SensorInit: Impossible d'ouvrir le fichier %s\n",SensorTab[i].DevName);
+			return SensorTab[i].File;
+		}
+		pthread_create(&SensorTab[i].SensorThread, PTHREAD_CREATE_JOINABLE, SensorTask, (void *)&SensorTab[i]);
+	}
+	printf("SensorInit finished...\n");
+
 	return 0;
 };
 
@@ -49,6 +94,11 @@ int SensorsStart (void) {
 /* Ici, vous devriez démarrer l'acquisition sur les capteurs.        */ 
 /* Les capteurs ainsi que tout le reste du système devrait être      */
 /* prêt à faire leur travail et il ne reste plus qu'à tout démarrer. */
+
+	SensorsActivated = 1;
+	pthread_barrier_wait(&SensorStartBarrier);
+	pthread_barrier_destroy(&SensorStartBarrier);
+	printf("%s Sensors démarré\n", __FUNCTION__);
 	return 0;
 }
 
