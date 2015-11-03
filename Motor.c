@@ -56,13 +56,20 @@ pthread_barrier_t 	MotorStartBarrier;
 
 void SetPWM(int file, int pwm1, int pwm2, int pwm3, int pwm4)
 {
-	tPwmStream pwmData;
-	pwmData.ele.cmd=WRITE_PWM_CMD;
-	pwmData.ele.PwmMoteur1=pwm1;
-	pwmData.ele.PwmMoteur2=pwm2;
-	pwmData.ele.PwmMoteur3=pwm3;
-	pwmData.ele.PwmMoteur4=pwm4;
-    write(file,pwmData.bytes,5);
+//	tPwmStream pwmData;
+//	pwmData.ele.cmd=WRITE_PWM_CMD;
+//	pwmData.ele.PwmMoteur1=pwm1;
+//	pwmData.ele.PwmMoteur2=pwm2;
+//	pwmData.ele.PwmMoteur3=pwm3;
+//	pwmData.ele.PwmMoteur4=pwm4;
+//    write(file,pwmData.bytes,5);
+	unsigned char cmd[5];
+	cmd[0] = 0x20 | ((pwm1&0x1ff)>>4);
+	cmd[1] = ((pwm1&0x1ff)<<4) | ((pwm2&0x1ff)>>5);
+	cmd[2] = ((pwm2&0x1ff)<<3) | ((pwm3&0x1ff)>>6);
+	cmd[3] = ((pwm3&0x1ff)<<2) | ((pwm4&0x1ff)>>7);
+	cmd[4] = ((pwm4&0x1ff)<<1);
+	write(file, cmd, 5);
 }
 
 void SetLed(int file, char redLed, char grnLed)
@@ -205,7 +212,7 @@ void *MotorTask ( void *ptr )
 		}
 		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &Delai, NULL);
 //		printf("MotorTask time: %d seconds and %d ns\n", Delai.tv_sec, Delai.tv_nsec);
-//		SetPWM(Motor->file, 256 , 256 , 256 , 256);
+//		SetPWM(Motor->file, 500 , 500 , 500 , 500);
 		SetLed(Motor->file,0xF,0);
 
 	}
@@ -226,7 +233,7 @@ int MotorInit (MotorStruct *Motor) {
 //	if(result == 0)
 //	{
 		pthread_create(&Motor->MotorThread, PTHREAD_CREATE_JOINABLE, MotorTask, (void *)Motor);
-		printf("MotorThread created...");
+		printf("MotorTask created...\n");
 //	}
 //	else
 //		return result;
