@@ -13,65 +13,51 @@
 #define TimeDelay	50000
 #define SleepDelayNanos 5000000
 #define MotorTaskPriority	1
+#define POLICY SCHED_RR
 
 #define WRITE_PWM_CMD 0b001
 #define WRITE_LED_CMD 0b011
 
 extern sem_t	MotorTimerSem;
 extern int		MotorActivated;
-
-pthread_barrier_t 	MotorStartBarrier;
-//SetPwm union definition
-typedef union uPwmStream
-{
-	uint8_t bytes[5];
-	__attribute__((__packed__))struct
-	{
-		unsigned int cmd		:3;
-		unsigned int PwmMoteur1	:9;
-		unsigned int PwmMoteur2	:9;
-		unsigned int PwmMoteur3	:9;
-		unsigned int PwmMoteur4	:9;
-		unsigned int xVal		:1;
-	}ele;
-}tPwmStream;
-
-//SetLed union definition
-typedef union uLedStream
-{
-	uint8_t bytes[2];
-	__attribute__((__packed__))struct
-	{
-		unsigned int  cmd		:3;
-		unsigned int  RedLed	:4;
-		unsigned int  xVal1		:4;
-		unsigned int  GrnLed	:4;
-		unsigned int  xVal2		:1;
-	}ele;
-}tLedStream;
-
-
+int pwmVal=0;
 
 pthread_barrier_t 	MotorStartBarrier;
 
-void SetPWM(int file, int pwm1, int pwm2, int pwm3, int pwm4)
+void SetPWM(int file, uint16_t *pwm)
 {
-	tPwmStream pwmData;
-	pwmData.ele.cmd=WRITE_PWM_CMD;
-	pwmData.ele.PwmMoteur1=pwm1;
-	pwmData.ele.PwmMoteur2=pwm2;
-	pwmData.ele.PwmMoteur3=pwm3;
-	pwmData.ele.PwmMoteur4=pwm4;
-    write(file,pwmData.bytes,5);
+	unsigned char cmd[5];
+	if(pwmVal!=pwm[0])
+	{
+		printf("pwm1 %d",pwm[0]);
+		pwmVal=pwm[0];
+	}
+	cmd[0] = 0x20|((pwm[0]&0x1ff)>>4);
+	cmd[1] = ((pwm[0]&0x1ff)<<4) | ((pwm[1]&0x1ff)>>5);
+	cmd[2] = ((pwm[1]&0x1ff)<<3) | ((pwm[2]&0x1ff)>>6);
+	cmd[3] = ((pwm[2]&0x1ff)<<2) | ((pwm[3]&0x1ff)>>7);
+	cmd[4] = ((pwm[3]&0x1ff)<<1);
+    write(file,cmd,5);
 }
 
-void SetLed(int file, char redLed, char grnLed)
+void SetLed(int file, u_int16_t * led)
 {
-	tLedStream ledData;
-	ledData.ele.cmd=WRITE_LED_CMD;
-	ledData.ele.RedLed=redLed;
-	ledData.ele.GrnLed=grnLed;
-    write(file,ledData.bytes,2);
+	unsigned char cmd[2];
+	unsigned char i;
+	unsigned char red=0;
+	unsigned char grn=0;
+
+	for (i=0;i<4;i++)
+	{
+		if(led[i]&MOTOR_LEDRED)
+			red|=0x1<<i;
+		if(led[i]&MOTOR_LEDGREEN)
+			grn|=0x1<<i;
+	}
+
+	cmd[0] = 0x60 | ((red&0x0f)<<1);
+	cmd[1] = ((grn&0x0f)<<1);
+    write(file,cmd,2);
 }
 
 int gpio_set (int nr, int val)  {
@@ -171,30 +157,46 @@ int MotorPortInit(MotorStruct *Motor) {
 }
 
 
-void motor_send(MotorStruct *Motor, int SendMode) {
+void motor_send(MotorStruct *Motor, int SendMode)
+{
 /* Fonction utilitaire pour simplifier les transmissions aux moteurs */
 
-	switch (SendMode) {
-	case MOTOR_NONE : 		break;
-	case MOTOR_PWM_ONLY :	/* A faire! */
-							break;
-	case MOTOR_LED_ONLY :	/* A faire! */
-							break;
-	case MOTOR_PWM_LED :	/* A faire! */
-							break;
+	switch (SendMode)
+	{
+		case MOTOR_NONE :
+
+		break;
+
+		case MOTOR_PWM_ONLY :
+			SetPWM( Motor->file, Motor->pwm);
+		break;
+
+		case MOTOR_LED_ONLY :
+			SetLed( Motor->file, Motor->led);
+		break;
+
+		case MOTOR_PWM_LED :
+			SetPWM( Motor->file, Motor->pwm);
+			SetLed( Motor->file, Motor->led);
+		break;
 	}
 }
+
 
 
 void *MotorTask ( void *ptr )
 {
 /* A faire! */
 /* Tache qui transmet les nouvelles valeurs de vitesse */
-/* à chaque moteur à interval régulier (5 ms).         */
-	struct timespec Delai;
-	clock_gettime(CLOCK_REALTIME, &Delai);
+/* à chaque moteur à interval régulier (5 ms).*/
 
-	MotorActivated = 1;
+	//FIXME Delai < temps atuel non protege
+	//Il ny a pas de mecanisme pour empecher
+	//que le Delai soit inferieur au temp actuel
+	struct timespec Delai;
+	MotorStruct *Motor = (MotorStruct*)ptr;
+	pthread_barrier_wait(&(MotorStartBarrier));
+	clock_gettime(CLOCK_REALTIME, &Delai);
 	while (MotorActivated)
 	{
 		Delai.tv_nsec += SleepDelayNanos;
@@ -204,29 +206,40 @@ void *MotorTask ( void *ptr )
 			Delai.tv_nsec -= 1000000000;
 		}
 		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &Delai, NULL);
-//		printf("MotorTask time: %d seconds and %d ns\n", Delai.tv_sec, Delai.tv_nsec);
+
+		pthread_spin_lock(&(Motor->MotorLock));
+		motor_send(Motor,MOTOR_PWM_ONLY);
+		pthread_spin_unlock(&(Motor->MotorLock));
+
 	}
 	pthread_exit(0); /* exit thread */
 }
 
-
-int MotorInit (MotorStruct *Motor) {
-/* A faire! */
-/* Ici, vous devriez faire l'initialisation des moteurs.   */
-/* C'est-à-dire initialiser le Port des moteurs avec la    */
-/* fonction MotorPortInit() et créer la Tâche MotorTask()  */
-/* qui va s'occuper des mises à jours des moteurs en cours */ 
-/* d'exécution.                                            */
+int MotorInit (MotorStruct *Motor)
+{
 	int result;
+	int minprio,maxprio;
+	struct sched_param param;
+	pthread_attr_t attr;
+	result=MotorPortInit(Motor);
 
-	MotorPortInit(Motor);
-//	if(result == 0)
-//	{
-		pthread_create(&Motor->MotorThread, PTHREAD_CREATE_JOINABLE, MotorTask, (void *)MotorTaskPriority);
+	if(result == 0)
+	{	pthread_attr_init(&attr);
+		pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+		pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+		minprio = sched_get_priority_min(POLICY);
+		maxprio = sched_get_priority_max(POLICY);
+		pthread_attr_setschedpolicy(&attr, POLICY);
+		param.sched_priority = minprio + (maxprio - minprio)/2;
+		pthread_attr_setstacksize(&attr, THREADSTACK);
+		pthread_attr_setschedparam(&attr, &param);
+		pthread_barrier_init(&MotorStartBarrier, NULL, 2);
+		pthread_create(&Motor->MotorThread, &attr, MotorTask, (void *)Motor);
 		printf("MotorThread created...");
-//	}
-//	else
-//		return result;
+	}
+	else
+		return result;
 
 	return 0;
 }
@@ -234,12 +247,15 @@ int MotorInit (MotorStruct *Motor) {
 
 
 int MotorStart (void) {
-	int retval = -1;
 /* A faire! */
 /* Ici, vous devriez démarrer la mise à jour des moteurs (MotorTask).    */ 
 /* Tout le système devrait être prêt à faire leur travail et il ne reste */
-/* plus qu'à tout démarrer.                                              */
-	return retval;
+/* plus qu'à tout démarrer.   */
+	MotorActivated = 1;
+	pthread_barrier_wait(&(MotorStartBarrier));
+	pthread_barrier_destroy(&MotorStartBarrier);
+	printf("%s MotorStart démarré\n", __FUNCTION__);
+	return 0;
 }
 
 
@@ -247,6 +263,10 @@ int MotorStart (void) {
 int MotorStop (MotorStruct *Motor) {
 /* A faire! */
 /* Ici, vous devriez arrêter les moteurs et fermer le Port des moteurs. */ 
-	return 0;
+	MotorActivated = 0;
+	if(close(Motor->file)!=0)
+		return -1;
+	else
+		return  0;
 }
 
