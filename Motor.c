@@ -24,29 +24,29 @@ pthread_barrier_t 	MotorStartBarrier;
 //SetPwm union definition
 typedef union uPwmStream
 {
-	char bytes[5];
-	struct
+	uint8_t bytes[5];
+	__attribute__((__packed__))struct
 	{
-		char cmd		:3;
-		int PwmMoteur1	:9;
-		int PwmMoteur2	:9;
-		int PwmMoteur3	:9;
-		int PwmMoteur4	:9;
-		char xVal		:1;
+		unsigned int cmd		:3;
+		unsigned int PwmMoteur1	:9;
+		unsigned int PwmMoteur2	:9;
+		unsigned int PwmMoteur3	:9;
+		unsigned int PwmMoteur4	:9;
+		unsigned int xVal		:1;
 	}ele;
 }tPwmStream;
 
 //SetLed union definition
 typedef union uLedStream
 {
-	char bytes[2];
-	struct
+	uint8_t bytes[2];
+	__attribute__((__packed__))struct
 	{
-		char cmd		:3;
-		int  RedLed		:4;
-		char xVal1		:4;
-		int  GrnLed		:4;
-		char xVal2		:1;
+		unsigned int  cmd		:3;
+		unsigned int  RedLed	:4;
+		unsigned int  xVal1		:4;
+		unsigned int  GrnLed	:4;
+		unsigned int  xVal2		:1;
 	}ele;
 }tLedStream;
 
@@ -149,6 +149,7 @@ int MotorPortInit(MotorStruct *Motor) {
 		usleep(2*TimeDelay);
 		motor_cmd(Motor->file, 0xE0, reply, 2);
 		motor_cmd(Motor->file, 0x91, reply, 121);
+
 		motor_cmd(Motor->file, 0xA1, reply, 2);
 		motor_cmd(Motor->file, i + 1, reply, 1);
 		motor_cmd(Motor->file, 0x40, reply, 2);
