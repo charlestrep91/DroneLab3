@@ -135,7 +135,6 @@ int MotorPortInit(MotorStruct *Motor) {
 		usleep(2*TimeDelay);
 		motor_cmd(Motor->file, 0xE0, reply, 2);
 		motor_cmd(Motor->file, 0x91, reply, 121);
-
 		motor_cmd(Motor->file, 0xA1, reply, 2);
 		motor_cmd(Motor->file, i + 1, reply, 1);
 		motor_cmd(Motor->file, 0x40, reply, 2);
@@ -215,8 +214,14 @@ void *MotorTask ( void *ptr )
 	pthread_exit(0); /* exit thread */
 }
 
-int MotorInit (MotorStruct *Motor)
-{
+
+int MotorInit (MotorStruct *Motor) {
+/* A faire! */
+/* Ici, vous devriez faire l'initialisation des moteurs.   */
+/* C'est-à-dire initialiser le Port des moteurs avec la    */
+/* fonction MotorPortInit() et créer la Tâche MotorTask()  */
+/* qui va s'occuper des mises à jours des moteurs en cours */ 
+/* d'exécution.                                            */
 	int result;
 	int minprio,maxprio;
 	struct sched_param param;
