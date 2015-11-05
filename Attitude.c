@@ -6,7 +6,7 @@
  */
 
 #include "Attitude.h"
-
+#define POLICY SCHED_RR
 pthread_barrier_t   AttitudeStartBarrier;
 
 uint8_t  AttitudeActivated 	= 0;

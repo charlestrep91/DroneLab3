@@ -29,6 +29,7 @@
 
 #define MAX_PERIOD	1000000000L
 #define MAIN_PERIOD	20
+#define POLICY SCHED_RR
 
 
 SensorRawData	RawData[NUM_SENSOR][DATABUFSIZE];

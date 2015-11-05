@@ -11,6 +11,7 @@
 
 #define MAX_TOT_SAMPLE 1000
 #define RATE_NANOS 5000000		//number of nanoseconds per rate
+#define POLICY SCHED_RR
 
 extern SensorStruct	SensorTab[NUM_SENSOR];
 
@@ -29,12 +30,9 @@ void *SensorTask ( void *ptr )
 	SensorStruct *Sensor = (SensorStruct*)ptr;
 	struct timespec Delai;
 	int SleepDelayNanos = SensorRate[Sensor->type] * RATE_NANOS;
-
 	printf("SensorTask: %s task running...\n",Sensor->Name);
-	clock_gettime(CLOCK_REALTIME, &Delai);
-//	SensorsActivated = 1;
-
 	pthread_barrier_wait(&SensorStartBarrier);
+	clock_gettime(CLOCK_REALTIME, &Delai);
 	while (SensorsActivated)
 	{
 		Delai.tv_nsec += SleepDelayNanos;

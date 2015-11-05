@@ -16,6 +16,9 @@ extern int		MavlinkActivated;
 
 pthread_barrier_t 	MavlinkStartBarrier;
 
+
+#define POLICY SCHED_RR
+
 extern ControlStruct	Control;
 
 void *MavlinkStatusTask(void *ptr) {
