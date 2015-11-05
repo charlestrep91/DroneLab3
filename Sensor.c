@@ -30,7 +30,13 @@ void *SensorTask ( void *ptr )
 	SensorStruct *Sensor = (SensorStruct*)ptr;
 	struct timespec Delai;
 	int SleepDelayNanos = SensorRate[Sensor->type] * RATE_NANOS;
+	int result;
+	int i;
+	double tempData[3];
+
 	printf("SensorTask: %s task running...\n",Sensor->Name);
+	
+
 	pthread_barrier_wait(&SensorStartBarrier);
 	clock_gettime(CLOCK_REALTIME, &Delai);
 	while (SensorsActivated)
@@ -43,23 +49,31 @@ void *SensorTask ( void *ptr )
 		}
 		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &Delai, NULL);
 
+		pthread_spin_lock(&Sensor->DataLock);
 		//check if received entire structure of data
-		if(read(Sensor->File, &Sensor->RawData, sizeof(SensorRawData)) == sizeof(SensorRawData))
+		result = read(Sensor->File, &Sensor->RawData, sizeof(SensorRawData));
+		pthread_spin_unlock(&Sensor->DataLock);
+		tempData[0] = (double)Sensor->RawData->data[0];
+		tempData[1] = (double)Sensor->RawData->data[1];
+		tempData[2] = (double)Sensor->RawData->data[2];
+
+		if(result == sizeof(SensorRawData))
 		{
 			if(Sensor->RawData->status == NEW_SAMPLE)
 			{
-				Sensor->RawData->status = OLD_SAMPLE;
+				for(i=0; i<3; i++)
+					tempData[i] = tempData[i] * Sensor->Param->Conversion;
 
-			}
-			else if(Sensor->RawData->status == INVALID_CHECKSUM)
-			{
-				//invalid data received
+				pthread_spin_lock(&Sensor->DataLock);
+				Sensor->Data->Data[0] = tempData[0];
+				Sensor->Data->Data[1] = tempData[1];
+				Sensor->Data->Data[2] = tempData[2];
+				pthread_spin_unlock(&Sensor->DataLock);
 			}
 		}
 		else
 		{
-			printf("SensorTask: %s task got incomplete data...\n",Sensor->Name);
-			Sensor->RawData->status = INVALID_CHECKSUM;
+			printf("SensorTask: invalid data struct size copy\n");
 		}
 
 
