@@ -9,6 +9,12 @@
 
 #define ABS(x) (((x) < 0.0) ? -(x) : (x))
 
+//period in ns
+#define ACCEL_PERIOD	5000000
+#define GYRO_PERIOD		5000000
+#define SONAR_PERIOD	20000000
+#define BAROM_PERIOD	20000000	//a modifier
+#define MAGNETO_PERIOD	10000000
 
 #define MAX_TOT_SAMPLE 1000
 
