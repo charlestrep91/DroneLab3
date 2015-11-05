@@ -9,14 +9,8 @@
 
 #define ABS(x) (((x) < 0.0) ? -(x) : (x))
 
-//period in ns
-#define ACCEL_PERIOD	5000000
-#define GYRO_PERIOD		5000000
-#define SONAR_PERIOD	20000000
-#define BAROM_PERIOD	20000000	//a modifier
-#define MAGNETO_PERIOD	10000000
-
 #define MAX_TOT_SAMPLE 1000
+#define RATE_NANOS 5000000		//number of nanoseconds per rate
 
 extern SensorStruct	SensorTab[NUM_SENSOR];
 
@@ -28,13 +22,13 @@ uint8_t  SensorsActivated 	= 0;
 uint8_t  LogActivated  	  	= 0;
 uint8_t  numLogOutput 	  	= 0;
 
-unsigned long SensorPeriods[] = {ACCEL_PERIOD, GYRO_PERIOD, SONAR_PERIOD, BAROM_PERIOD, MAGNETO_PERIOD};
+unsigned long SensorRate[] = {ACCEL_RATE, GYRO_RATE, SONAR_RATE, BAROM_RATE, MAGNETO_RATE};
 
 void *SensorTask ( void *ptr )
 {
 	SensorStruct *Sensor = (SensorStruct*)ptr;
 	struct timespec Delai;
-	int SleepDelayNanos =SensorPeriods[Sensor->type];
+	int SleepDelayNanos = SensorRate[Sensor->type] * RATE_NANOS;
 
 	printf("SensorTask: %s task running...\n",Sensor->Name);
 	clock_gettime(CLOCK_REALTIME, &Delai);
@@ -54,12 +48,20 @@ void *SensorTask ( void *ptr )
 		//check if received entire structure of data
 		if(read(Sensor->File, &Sensor->RawData, sizeof(SensorRawData)) == sizeof(SensorRawData))
 		{
-			//Les données ont été lues et placées dans RawData
+			if(Sensor->RawData->status == NEW_SAMPLE)
+			{
+				Sensor->RawData->status = OLD_SAMPLE;
+
+			}
+			else if(Sensor->RawData->status == INVALID_CHECKSUM)
+			{
+				//invalid data received
+			}
 		}
 		else
 		{
 			printf("SensorTask: %s task got incomplete data...\n",Sensor->Name);
-			Sensor->RawData->status = -1; //invalid data
+			Sensor->RawData->status = INVALID_CHECKSUM;
 		}
 
 
@@ -76,8 +78,23 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 /* ouvrir les fichiers des capteurs, et de créer les Tâches qui vont */
 /* s'occuper de réceptionner les échantillons des capteurs.          */
 	int i;
+	int minprio,maxprio;
+	struct sched_param param;
+	pthread_attr_t attr;
+
 	printf("SensorInit...\n");
 	pthread_barrier_init(&SensorStartBarrier, NULL, NUM_SENSOR+1);
+
+	pthread_attr_init(&attr);
+	pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+	minprio = sched_get_priority_min(POLICY);
+	maxprio = sched_get_priority_max(POLICY);
+	pthread_attr_setschedpolicy(&attr, POLICY);
+	param.sched_priority = minprio + (maxprio - minprio)/2;
+	pthread_attr_setstacksize(&attr, THREADSTACK);
+	pthread_attr_setschedparam(&attr, &param);
 
 	for(i=0; i<NUM_SENSOR; i++)
 	{
@@ -87,7 +104,7 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 			printf("SensorInit: Impossible d'ouvrir le fichier %s\n",SensorTab[i].DevName);
 			return SensorTab[i].File;
 		}
-		pthread_create(&SensorTab[i].SensorThread, PTHREAD_CREATE_JOINABLE, SensorTask, (void *)&SensorTab[i]);
+		pthread_create(&SensorTab[i].SensorThread, &attr, SensorTask, (void *)&SensorTab[i]);
 	}
 	printf("SensorInit finished...\n");
 
