@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
 	StartTimer();
 
 	MotorStart();
-	//SensorsStart();
+	SensorsStart();
 	AttitudeStart();
 
 	SensorsLogsStart();
