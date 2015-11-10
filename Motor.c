@@ -27,11 +27,7 @@ pthread_barrier_t 	MotorStartBarrier;
 void SetPWM(int file, uint16_t *pwm)
 {
 	unsigned char cmd[5];
-	if(pwmVal!=pwm[0])
-	{
-		printf("pwm1 %d",pwm[0]);
-		pwmVal=pwm[0];
-	}
+
 	cmd[0] = 0x20|((pwm[0]&0x1ff)>>4);
 	cmd[1] = ((pwm[0]&0x1ff)<<4) | ((pwm[1]&0x1ff)>>5);
 	cmd[2] = ((pwm[1]&0x1ff)<<3) | ((pwm[2]&0x1ff)>>6);
@@ -257,6 +253,7 @@ int MotorStop (MotorStruct *Motor) {
 /* A faire! */
 /* Ici, vous devriez arrêter les moteurs et fermer le Port des moteurs. */ 
 	MotorActivated = 0;
+	sem_destroy(&MotorTimerSem);
 	if(close(Motor->file)!=0)
 		return -1;
 	else
