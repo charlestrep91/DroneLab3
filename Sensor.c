@@ -19,11 +19,9 @@ pthread_barrier_t   SensorStartBarrier;
 pthread_barrier_t   LogStartBarrier;
 pthread_mutex_t 	  Log_Mutex;
 
-uint8_t  SensorsActivated 	= 0;
+extern uint8_t  SensorsActivated 	= 0;
 uint8_t  LogActivated  	  	= 0;
 uint8_t  numLogOutput 	  	= 0;
-
-unsigned long SensorRate[] = {ACCEL_RATE, GYRO_RATE, SONAR_RATE, BAROM_RATE, MAGNETO_RATE};
 
 void *SensorTask ( void *ptr )
 {
@@ -100,6 +98,7 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 			printf("SensorInit: Impossible d'ouvrir le fichier %s\n",SensorTab[i].DevName);
 			return SensorTab[i].File;
 		}
+		sem_init(&SensorTab[i].DataSem,0,0);
 		pthread_create(&SensorTab[i].SensorThread, &attr, SensorTask, (void *)&SensorTab[i]);
 	}
 	printf("SensorInit finished...\n");
@@ -126,6 +125,11 @@ int SensorsStop (SensorStruct SensorTab[NUM_SENSOR]) {
 /* A faire! */
 /* Ici, vous devriez défaire ce que vous avez fait comme travail dans */
 /* SensorsInit() (toujours verifier les retours de chaque call)...    */ 
+
+	for(i=0; i<NUM_SENSOR; i++)
+	{
+		sem_destroy(&SensorTab[i].DataSem,0,0);
+	}
 	return 0;
 }
 

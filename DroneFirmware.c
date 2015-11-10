@@ -51,6 +51,7 @@ sem_t	MavlinkStatusTimerSem;
 int		MavlinkActivated = 0;
 sem_t 	ControlTimerSem;
 int		ControlActivated = 0;
+uint8_t  SensorsActivated = 0;
 
 sem_t 	MainTimerSem;
 
@@ -78,6 +79,19 @@ void SigTimerHandler (int signo) {
 	if (MotorActivated) {
 		if ((Period % MOTOR_PERIOD) == 0)
 			sem_post(&MotorTimerSem);
+	}
+	if (SensorsActivated)
+	{
+		if ((Period % ACCEL_RATE) == 0)
+			sem_post(&SensorTab[ACCELEROMETRE].DataSem);
+		if ((Period % GYRO_RATE) == 0)
+			sem_post(&SensorTab[GYROSCOPE].DataSem);
+		if ((Period % SONAR_RATE) == 0)
+			sem_post(&SensorTab[SONAR].DataSem);
+		if ((Period % BAROM_RATE) == 0)
+			sem_post(&SensorTab[BAROMETRE].DataSem);
+		if ((Period % MAGNETO_RATE) == 0)
+			sem_post(&SensorTab[MAGNETOMETRE].DataSem);
 	}
 	if ((Period % MAIN_PERIOD) == 0)
 		sem_post (&MainTimerSem);
