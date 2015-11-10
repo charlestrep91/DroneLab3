@@ -35,32 +35,34 @@ void *SensorTask ( void *ptr )
 
 	while(SensorsActivated)
 	{
-//		sem_wait(&Sensor->DataSem);
-//		pthread_spin_lock(&Sensor->DataLock);
-//		result = read(Sensor->File, &Sensor->RawData, sizeof(SensorRawData));
-//		pthread_spin_unlock(&Sensor->DataLock);
-//		tempData[0] = (double)Sensor->RawData->data[0];
-//		tempData[1] = (double)Sensor->RawData->data[1];
-//		tempData[2] = (double)Sensor->RawData->data[2];
-//
-//		if(result == sizeof(SensorRawData))	//check if received entire structure of data
-//		{
-//			if(Sensor->RawData->status == NEW_SAMPLE)
-//			{
-//				for(i=0; i<3; i++)
-//					tempData[i] = tempData[i] * Sensor->Param->Conversion;
-//
-//				pthread_spin_lock(&Sensor->DataLock);
-//				Sensor->Data->Data[0] = tempData[0];
-//				Sensor->Data->Data[1] = tempData[1];
-//				Sensor->Data->Data[2] = tempData[2];
-//				pthread_spin_unlock(&Sensor->DataLock);
-//			}
-//		}
-//		else
-//		{
-//			printf("SensorTask: invalid data struct size copy\n");
-//		}
+		sem_wait(&Sensor->DataSem);
+		pthread_spin_lock(&Sensor->DataLock);
+		result = read(Sensor->File, &(Sensor->RawData[Sensor->DataIdx]), sizeof(SensorRawData));
+		pthread_spin_unlock(&Sensor->DataLock);
+
+		if(result == sizeof(SensorRawData))	//check if received entire structure of data
+		{
+			if(Sensor->RawData[Sensor->DataIdx].status == NEW_SAMPLE)
+			{
+				for(i=0; i<3; i++)
+				{
+					tempData[i] = (double)Sensor->RawData[Sensor->DataIdx].data[i];
+					tempData[i] = tempData[i] * Sensor->Param->Conversion;
+				}
+
+				pthread_spin_lock(&Sensor->DataLock);
+				Sensor->Data[Sensor->DataIdx].Data[0] = tempData[0];
+				Sensor->Data[Sensor->DataIdx].Data[1] = tempData[1];
+				Sensor->Data[Sensor->DataIdx].Data[2] = tempData[2];
+				pthread_spin_unlock(&Sensor->DataLock);
+				Sensor->DataIdx = ((Sensor->DataIdx+1) + DATABUFSIZE) % DATABUFSIZE;
+			}
+		}
+		else
+		{
+			printf("SensorTask: invalid data struct size copy\n");
+		}
+
 	}
 	pthread_exit(0); /* exit thread */
 }
@@ -101,6 +103,7 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 			return SensorTab[i].File;
 		}
 		sem_init(&SensorTab[i].DataSem,0,0);
+		pthread_spin_init(&SensorTab[i].DataLock,0);
 		pthread_create(&SensorTab[i].SensorThread, &attr, SensorTask, (void *)&SensorTab[i]);
 	}
 	printf("SensorInit finished...\n");
@@ -130,6 +133,7 @@ int SensorsStop (SensorStruct SensorTab[NUM_SENSOR]) {
 	SensorsActivated = 0;
 	for(i=0; i<NUM_SENSOR; i++)
 	{
+		pthread_spin_destroy(&SensorTab[i].DataLock);
 		sem_destroy(&SensorTab[i].DataSem);
 		err += close(SensorTab[i].File);
 	}
