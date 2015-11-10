@@ -55,7 +55,16 @@ void *SensorTask ( void *ptr )
 				Sensor->Data[Sensor->DataIdx].Data[1] = tempData[1];
 				Sensor->Data[Sensor->DataIdx].Data[2] = tempData[2];
 				pthread_spin_unlock(&Sensor->DataLock);
+
+//				if((Sensor->DataIdx % 25) == 0 && Sensor->type == GYROSCOPE)
+//					printf("SensorTask: Idx = %d\n", Sensor->DataIdx);
+//					printf("SensorTask: 	Data0: %f	Data1: %f 	Data2: %f\n", Sensor->Data[Sensor->DataIdx].Data[0], Sensor->Data[Sensor->DataIdx].Data[1], Sensor->Data[Sensor->DataIdx].Data[2]);
+
 				Sensor->DataIdx = ((Sensor->DataIdx+1) + DATABUFSIZE) % DATABUFSIZE;
+
+				pthread_mutex_lock(&(Sensor->DataSampleMutex));
+				pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
+				pthread_mutex_unlock(&(Sensor->DataSampleMutex));
 			}
 		}
 		else
@@ -105,6 +114,7 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 		sem_init(&SensorTab[i].DataSem,0,0);
 		pthread_spin_init(&SensorTab[i].DataLock,0);
 		pthread_create(&SensorTab[i].SensorThread, &attr, SensorTask, (void *)&SensorTab[i]);
+		SensorTab[i].DataIdx = 0;
 	}
 	printf("SensorInit finished...\n");
 
@@ -229,7 +239,8 @@ int InitSensorLog (SensorStruct *Sensor) {
 	if ((retval = pthread_create(&(Sensor->LogThread), &attr, SensorLogTask, (void *) Sensor)) != 0)
 		printf("%s : Impossible de créer Tâche Log de %s => retval = %d\n", __FUNCTION__, Sensor->Name, retval);
 
-
+	pthread_mutex_init(&Sensor->DataSampleMutex, NULL);
+	pthread_cond_init(&Sensor->DataNewSampleCondVar, NULL);
 	pthread_attr_destroy(&attr);
 
 	return 0;
@@ -270,11 +281,16 @@ int SensorsLogsStop (SensorStruct SensorTab[]) {
 	int16_t	i;
 
 	LogActivated = 0;
-	for (i = 0; i < NUM_SENSOR; i++) {
-		if (SensorTab[i].DoLog == 1) {
+	for (i = 0; i < NUM_SENSOR; i++)
+	{
+		pthread_cond_broadcast(&SensorTab[i].DataNewSampleCondVar);
+		if (SensorTab[i].DoLog == 1)
+		{
 			pthread_join(SensorTab[i].LogThread, NULL);
 			SensorTab[i].DoLog = 0;
 		}
+		pthread_cond_init(&SensorTab[i].DataNewSampleCondVar, NULL);
+		pthread_mutex_destroy(&SensorTab[i].DataSampleMutex);
 	}
 	pthread_mutex_destroy(&Log_Mutex);
 
