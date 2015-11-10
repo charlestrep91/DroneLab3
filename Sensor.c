@@ -35,48 +35,32 @@ void *SensorTask ( void *ptr )
 	double tempData[3];
 
 	printf("SensorTask: %s task running...\n",Sensor->Name);
-	
-
 	pthread_barrier_wait(&SensorStartBarrier);
-	clock_gettime(CLOCK_REALTIME, &Delai);
-	while (SensorsActivated)
+	sem_wait(&Sensor->DataSem);
+	pthread_spin_lock(&Sensor->DataLock);
+	result = read(Sensor->File, &Sensor->RawData, sizeof(SensorRawData));
+	pthread_spin_unlock(&Sensor->DataLock);
+	tempData[0] = (double)Sensor->RawData->data[0];
+	tempData[1] = (double)Sensor->RawData->data[1];
+	tempData[2] = (double)Sensor->RawData->data[2];
+
+	if(result == sizeof(SensorRawData))	//check if received entire structure of data
 	{
-		Delai.tv_nsec += SleepDelayNanos;
-		if(Delai.tv_nsec >= 1000000000)
+		if(Sensor->RawData->status == NEW_SAMPLE)
 		{
-			Delai.tv_sec += 1;
-			Delai.tv_nsec -= 1000000000;
+			for(i=0; i<3; i++)
+				tempData[i] = tempData[i] * Sensor->Param->Conversion;
+
+			pthread_spin_lock(&Sensor->DataLock);
+			Sensor->Data->Data[0] = tempData[0];
+			Sensor->Data->Data[1] = tempData[1];
+			Sensor->Data->Data[2] = tempData[2];
+			pthread_spin_unlock(&Sensor->DataLock);
 		}
-		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &Delai, NULL);
-
-		pthread_spin_lock(&Sensor->DataLock);
-		//check if received entire structure of data
-		result = read(Sensor->File, &Sensor->RawData, sizeof(SensorRawData));
-		pthread_spin_unlock(&Sensor->DataLock);
-		tempData[0] = (double)Sensor->RawData->data[0];
-		tempData[1] = (double)Sensor->RawData->data[1];
-		tempData[2] = (double)Sensor->RawData->data[2];
-
-		if(result == sizeof(SensorRawData))
-		{
-			if(Sensor->RawData->status == NEW_SAMPLE)
-			{
-				for(i=0; i<3; i++)
-					tempData[i] = tempData[i] * Sensor->Param->Conversion;
-
-				pthread_spin_lock(&Sensor->DataLock);
-				Sensor->Data->Data[0] = tempData[0];
-				Sensor->Data->Data[1] = tempData[1];
-				Sensor->Data->Data[2] = tempData[2];
-				pthread_spin_unlock(&Sensor->DataLock);
-			}
-		}
-		else
-		{
-			printf("SensorTask: invalid data struct size copy\n");
-		}
-
-
+	}
+	else
+	{
+		printf("SensorTask: invalid data struct size copy\n");
 	}
 	pthread_exit(0); /* exit thread */
 }
