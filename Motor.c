@@ -159,7 +159,6 @@ int MotorPortInit(MotorStruct *Motor) {
 void motor_send(MotorStruct *Motor, int SendMode)
 {
 /* Fonction utilitaire pour simplifier les transmissions aux moteurs */
-
 	switch (SendMode)
 	{
 		case MOTOR_NONE :
@@ -188,24 +187,12 @@ void *MotorTask ( void *ptr )
 /* A faire! */
 /* Tache qui transmet les nouvelles valeurs de vitesse */
 /* à chaque moteur à interval régulier (5 ms).*/
-
-	//FIXME Delai < temps atuel non protege
-	//Il ny a pas de mecanisme pour empecher
-	//que le Delai soit inferieur au temp actuel
 	struct timespec Delai;
 	MotorStruct *Motor = (MotorStruct*)ptr;
 	pthread_barrier_wait(&(MotorStartBarrier));
-	clock_gettime(CLOCK_REALTIME, &Delai);
 	while (MotorActivated)
 	{
-		Delai.tv_nsec += SleepDelayNanos;
-		if(Delai.tv_nsec >= 1000000000)
-		{
-			Delai.tv_sec += 1;
-			Delai.tv_nsec -= 1000000000;
-		}
-		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &Delai, NULL);
-
+		sem_wait(&MotorTimerSem);
 		pthread_spin_lock(&(Motor->MotorLock));
 		motor_send(Motor,MOTOR_PWM_ONLY);
 		pthread_spin_unlock(&(Motor->MotorLock));
@@ -226,6 +213,7 @@ int MotorInit (MotorStruct *Motor) {
 	int minprio,maxprio;
 	struct sched_param param;
 	pthread_attr_t attr;
+	sem_init(&MotorTimerSem,0,0);
 	result=MotorPortInit(Motor);
 
 	if(result == 0)

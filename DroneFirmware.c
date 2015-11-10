@@ -74,6 +74,11 @@ void SigTimerHandler (int signo) {
 		if ((Period % MAVLINK_STATUS_PERIOD) == 0)
 			sem_post(&MavlinkStatusTimerSem);
 	}
+
+	if (MotorActivated) {
+		if ((Period % MOTOR_PERIOD) == 0)
+			sem_post(&MotorTimerSem);
+	}
 	if ((Period % MAIN_PERIOD) == 0)
 		sem_post (&MainTimerSem);
 	Period = (Period + 1) % MAX_PERIOD;
@@ -206,7 +211,7 @@ int main(int argc, char *argv[]) {
 	StartTimer();
 
 	MotorStart();
-	SensorsStart();
+	//SensorsStart();
 	AttitudeStart();
 
 	SensorsLogsStart();
