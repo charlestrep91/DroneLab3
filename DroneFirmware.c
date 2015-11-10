@@ -158,6 +158,13 @@ int main(int argc, char *argv[]) {
 	int		i, j, retval = 0;
 	int		ch = 0;
 
+	for(i=0;i<NUM_SENSOR;i++)
+	{
+		SensorTab[i].RawData=&RawData[i][0];
+		SensorTab[i].Data=&NavData[i][0];
+		SensorTab[i].Param=&ParamData[i];
+	}
+
 	printf("Usage :\n");
 	printf("	DroneFirmware <Option>\n");
 	printf("	   Option :	Pas d'option -> Par défaut (Pas de Log, IP = 192.168.1.2)\n");
