@@ -183,14 +183,16 @@ void *MotorTask ( void *ptr )
 /* Tache qui transmet les nouvelles valeurs de vitesse */
 /* à chaque moteur à interval régulier (5 ms).*/
 	struct timespec Delai;
+	uint16_t	led[4] = {MOTOR_LEDGREEN, MOTOR_LEDGREEN, MOTOR_LEDGREEN, MOTOR_LEDGREEN};
 	MotorStruct *Motor = (MotorStruct*)ptr;
 	pthread_barrier_wait(&(MotorStartBarrier));
 	while (MotorActivated)
 	{
 		sem_wait(&MotorTimerSem);
 		pthread_spin_lock(&(Motor->MotorLock));
-		motor_send(Motor,MOTOR_PWM_ONLY);
+//		motor_send(Motor,MOTOR_PWM_ONLY);
 		pthread_spin_unlock(&(Motor->MotorLock));
+		SetLed(Motor->file, led);
 
 	}
 	pthread_exit(0); /* exit thread */

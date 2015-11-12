@@ -67,10 +67,12 @@ void *SensorTask ( void *ptr )
 				Sensor->Data[Sensor->DataIdx].TimeDelay = tempTimeDelay;
 				pthread_spin_unlock(&Sensor->DataLock);
 
-//				if((Sensor->DataIdx % 25) == 0 && Sensor->type == GYROSCOPE)
+				if((Sensor->DataIdx % 25) == 0 && Sensor->type == ACCELEROMETRE)
+				{
 //					printf("SensorTask: TimeDelay# = %u\n", tempTimeDelay);
 //					printf("SensorTask: 	Data0: %f	Data1: %f 	Data2: %f\n", Sensor->Data[Sensor->DataIdx].Data[0], Sensor->Data[Sensor->DataIdx].Data[1], Sensor->Data[Sensor->DataIdx].Data[2]);
-
+//					printf("SensorTask: 	Data0: %d	Data1: %d 	Data2: %d\n", Sensor->RawData[Sensor->DataIdx].data[0], Sensor->RawData[Sensor->DataIdx].data[1], Sensor->RawData[Sensor->DataIdx].data[2]);
+				}
 				//increment Data buffer index
 				Sensor->DataIdx = ((Sensor->DataIdx+1) + DATABUFSIZE) % DATABUFSIZE;
 

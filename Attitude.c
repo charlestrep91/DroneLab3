@@ -86,6 +86,8 @@ void *AttitudeTask ( void *ptr ) {
   								break;
 		}
 
+//		printf("Attitude: Yaw  = %f\n", LocData.Yaw);
+
 		pthread_spin_lock(&(AttitudeMesure->AttitudeLock));
 		memcpy((void *) &(Attitude->AttitudeMesure->Data), (void *) &LocData, sizeof(AttData));
 		memcpy((void *) &(Attitude->AttitudeMesure->Speed), (void *) &LocSpeed, sizeof(AttData));
