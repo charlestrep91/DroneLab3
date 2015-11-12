@@ -11,7 +11,6 @@
 #include <fcntl.h>
 
 #define TimeDelay	50000
-#define SleepDelayNanos 5000000
 #define MotorTaskPriority	1
 #define POLICY SCHED_RR
 
