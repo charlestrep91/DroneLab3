@@ -29,6 +29,7 @@ void *SensorTask ( void *ptr )
 	int result;
 	int i;
 	double tempData[3];
+	uint32_t tempTimeDelay;
 
 	printf("SensorTask: %s task running...\n",Sensor->Name);
 	pthread_barrier_wait(&SensorStartBarrier);
@@ -44,27 +45,42 @@ void *SensorTask ( void *ptr )
 		{
 			if(Sensor->RawData[Sensor->DataIdx].status == NEW_SAMPLE)
 			{
+				//check if RawData samples have been missed
+				//TODO check sample #
+//				if((Sensor->RawData[Sensor->DataIdx].ech_num - Sensor->RawData[(Sensor->DataIdx - 1)].ech_num) != 1)
+//					printf("SensorTask: RawData sample missed: Old sample: #%u New sample: #%u Offset: %u\n", Sensor->RawData[(Sensor->DataIdx - 1)].ech_num, Sensor->RawData[Sensor->DataIdx].ech_num, (Sensor->RawData[Sensor->DataIdx].ech_num - Sensor->RawData[(Sensor->DataIdx - 1)].ech_num));
+
 				for(i=0; i<3; i++)
 				{
 					tempData[i] = (double)Sensor->RawData[Sensor->DataIdx].data[i];
 					tempData[i] = tempData[i] * Sensor->Param->Conversion;
 				}
 
+				//calculates delay between samples using timestamps
+				tempTimeDelay = ((Sensor->RawData[Sensor->DataIdx].timestamp_s - Sensor->RawData[(Sensor->DataIdx - 1)].timestamp_s) * 1000000000) + (Sensor->RawData[Sensor->DataIdx].timestamp_n - Sensor->RawData[(Sensor->DataIdx - 1)].timestamp_n);
+
+				//update Data buffer
 				pthread_spin_lock(&Sensor->DataLock);
 				Sensor->Data[Sensor->DataIdx].Data[0] = tempData[0];
 				Sensor->Data[Sensor->DataIdx].Data[1] = tempData[1];
 				Sensor->Data[Sensor->DataIdx].Data[2] = tempData[2];
+				Sensor->Data[Sensor->DataIdx].TimeDelay = tempTimeDelay;
 				pthread_spin_unlock(&Sensor->DataLock);
 
 //				if((Sensor->DataIdx % 25) == 0 && Sensor->type == GYROSCOPE)
-//					printf("SensorTask: Idx = %d\n", Sensor->DataIdx);
+//					printf("SensorTask: TimeDelay# = %u\n", tempTimeDelay);
 //					printf("SensorTask: 	Data0: %f	Data1: %f 	Data2: %f\n", Sensor->Data[Sensor->DataIdx].Data[0], Sensor->Data[Sensor->DataIdx].Data[1], Sensor->Data[Sensor->DataIdx].Data[2]);
 
+				//increment Data buffer index
 				Sensor->DataIdx = ((Sensor->DataIdx+1) + DATABUFSIZE) % DATABUFSIZE;
 
 				pthread_mutex_lock(&(Sensor->DataSampleMutex));
 				pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
 				pthread_mutex_unlock(&(Sensor->DataSampleMutex));
+			}
+			else if(Sensor->RawData[Sensor->DataIdx].status == NEW_SAMPLE)
+			{
+				printf("SensorTask: RawData #%u has an invalid checksum\n", Sensor->RawData[Sensor->DataIdx].ech_num);
 			}
 		}
 		else
