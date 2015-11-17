@@ -1,10 +1,10 @@
 /*
  ============================================================================
- Name        : ARDrone.c
+ Name        : DroneFirmware.c
  Author      : Bruno De Kelper
+ Authors	 : Jonathan Lapointe, Charles Trepanier
  Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
+ Description : main
  ============================================================================
  */
 

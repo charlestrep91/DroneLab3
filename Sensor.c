@@ -1,8 +1,11 @@
 /*
- * Sensor.c
- *
- *  Created on: 12 sept. 2013
- *      Author: bruno
+ ============================================================================
+ Name        : Sensor.c
+ Author      : Bruno De Kelper
+ Authors	 : Jonathan Lapointe, Charles Trepanier
+ Version     :
+ Description : taches d acquisition de valeurs des capteurs et conversion
+ ============================================================================
  */
 
 #include "Sensor.h"

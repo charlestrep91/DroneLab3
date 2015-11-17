@@ -1,10 +1,12 @@
 /*
- * Control.c
- *
- *  Created on: 28 sept. 2013
- *      Author: bruno
+ ============================================================================
+ Name        : Control.c
+ Author      : Bruno De Kelper
+ Authors	 : Jonathan Lapointe, Charles Trepanier
+ Version     :
+ Description : Tache de loi de commande
+ ============================================================================
  */
-
 #include "Control.h"
 
 extern sem_t 		ControlTimerSem;

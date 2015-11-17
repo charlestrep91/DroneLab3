@@ -1,11 +1,12 @@
 /*
- * Motor.c
- *
- *  Created on: 12 sept. 2013
- *      Author: bruno
+ ============================================================================
+ Name        : Motor.c
+ Author      : Bruno De Kelper
+ Authors	 : Jonathan Lapointe, Charles Trepanier
+ Version     :
+ Description : fonctions d envoie des valeurs PWM et Led et tache de rafraichissement des pwm moteur
+ ============================================================================
  */
-
-
 #include "Motor.h"
 #include <termios.h>
 #include <fcntl.h>
