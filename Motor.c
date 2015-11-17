@@ -23,25 +23,37 @@ int pwmVal=0;
 
 pthread_barrier_t 	MotorStartBarrier;
 
+/*
+* fnct qui ajuste la vitesse des moteurs en envoyant
+* une valeur pwm
+*/
 void SetPWM(int file, uint16_t *pwm)
 {
-	unsigned char cmd[5];
 
+	unsigned char cmd[5];
+	//mise en forme du message
 	cmd[0] = 0x20|((pwm[0]&0x1ff)>>4);
 	cmd[1] = ((pwm[0]&0x1ff)<<4) | ((pwm[1]&0x1ff)>>5);
 	cmd[2] = ((pwm[1]&0x1ff)<<3) | ((pwm[2]&0x1ff)>>6);
 	cmd[3] = ((pwm[2]&0x1ff)<<2) | ((pwm[3]&0x1ff)>>7);
 	cmd[4] = ((pwm[3]&0x1ff)<<1);
+	//envoie du msg vers le pilote du moteur
     write(file,cmd,5);
 }
 
+/*
+* fnct d assignation de couleur des leds
+*/
 void SetLed(int file, u_int16_t * led)
 {
+
+
 	unsigned char cmd[2];
 	unsigned char i;
 	unsigned char red=0;
 	unsigned char grn=0;
 
+	//construction du msg selon couleur
 	for (i=0;i<4;i++)
 	{
 		if(led[i]&MOTOR_LEDRED)
@@ -49,9 +61,10 @@ void SetLed(int file, u_int16_t * led)
 		if(led[i]&MOTOR_LEDGREEN)
 			grn|=0x1<<i;
 	}
-
+	//mise en forme du msg
 	cmd[0] = 0x60 | ((red&0x0f)<<1);
 	cmd[1] = ((grn&0x0f)<<1);
+	//envoie du msg vers le pilote du moteur
     write(file,cmd,2);
 }
 
@@ -150,24 +163,29 @@ int MotorPortInit(MotorStruct *Motor) {
 	return 0;
 }
 
-
+/*
+ * Fonction utilitaire pour simplifier
+ * les transmissions aux moteurs
+ */
 void motor_send(MotorStruct *Motor, int SendMode)
 {
-/* Fonction utilitaire pour simplifier les transmissions aux moteurs */
+
 	switch (SendMode)
 	{
 		case MOTOR_NONE :
 
 		break;
-
+		//envoie des valeurs PWM
 		case MOTOR_PWM_ONLY :
 			SetPWM( Motor->file, Motor->pwm);
 		break;
-
+		//envoie des valeurs couleur Led
 		case MOTOR_LED_ONLY :
 			SetLed( Motor->file, Motor->led);
 		break;
 
+		//envoie des valeurs PWM
+		//envoie des valeurs couleur Led
 		case MOTOR_PWM_LED :
 			SetPWM( Motor->file, Motor->pwm);
 			SetLed( Motor->file, Motor->led);
@@ -176,36 +194,40 @@ void motor_send(MotorStruct *Motor, int SendMode)
 }
 
 
-
+/*
+*  Tache qui transmet les nouvelles valeurs de vitesse
+*  à chaque moteur à interval régulier (5 ms).
+*/
 void *MotorTask ( void *ptr )
 {
-/* A faire! */
-/* Tache qui transmet les nouvelles valeurs de vitesse */
-/* à chaque moteur à interval régulier (5 ms).*/
 	struct timespec Delai;
-	uint16_t	led[4] = {MOTOR_LEDGREEN, MOTOR_LEDGREEN, MOTOR_LEDGREEN, MOTOR_LEDGREEN};
 	MotorStruct *Motor = (MotorStruct*)ptr;
+
+	//attente a la barriere
 	pthread_barrier_wait(&(MotorStartBarrier));
 	while (MotorActivated)
 	{
+		//attente active pour
+		//la disponibite du semaphore
 		sem_wait(&MotorTimerSem);
+
+		//mecanisme de protection sur struc Motor
 		pthread_spin_lock(&(Motor->MotorLock));
+
+		//envoie des valeurs aux moteurs
 		motor_send(Motor,MOTOR_PWM_ONLY);
 		pthread_spin_unlock(&(Motor->MotorLock));
-		SetLed(Motor->file, led);
-
 	}
 	pthread_exit(0); /* exit thread */
 }
 
-
+/*
+ * initialisation de la tache MotorTask
+ * creation de la semaphore MotorTimerSem
+ * creation de la barriere MotorStartBarrier
+*/
 int MotorInit (MotorStruct *Motor) {
-/* A faire! */
-/* Ici, vous devriez faire l'initialisation des moteurs.   */
-/* C'est-à-dire initialiser le Port des moteurs avec la    */
-/* fonction MotorPortInit() et créer la Tâche MotorTask()  */
-/* qui va s'occuper des mises à jours des moteurs en cours */ 
-/* d'exécution.                                            */
+
 	int result;
 	int minprio,maxprio;
 	struct sched_param param;
@@ -214,7 +236,11 @@ int MotorInit (MotorStruct *Motor) {
 	result=MotorPortInit(Motor);
 
 	if(result == 0)
-	{	pthread_attr_init(&attr);
+	{
+		pthread_barrier_init(&MotorStartBarrier, NULL, 2);
+
+		//definition des attributs de la tache
+		pthread_attr_init(&attr);
 		pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 		pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
@@ -224,7 +250,8 @@ int MotorInit (MotorStruct *Motor) {
 		param.sched_priority = minprio + (maxprio - minprio)/2;
 		pthread_attr_setstacksize(&attr, THREADSTACK);
 		pthread_attr_setschedparam(&attr, &param);
-		pthread_barrier_init(&MotorStartBarrier, NULL, 2);
+
+		//creation de la tache MotorTask
 		pthread_create(&Motor->MotorThread, &attr, MotorTask, (void *)Motor);
 		printf("MotorThread created...");
 	}
@@ -235,26 +262,36 @@ int MotorInit (MotorStruct *Motor) {
 }
 
 
-
+/*@Fct int MotorStart (void)
+* active le fanion MotorActivated en le mettant a 1
+* point darriver de la barriere MotorStartBarrier
+* qui demarre la tache MotorTask
+* et destruction de cette meme barriere par la suite
+*/
 int MotorStart (void) {
-/* A faire! */
-/* Ici, vous devriez démarrer la mise à jour des moteurs (MotorTask).    */ 
-/* Tout le système devrait être prêt à faire leur travail et il ne reste */
-/* plus qu'à tout démarrer.   */
+
 	MotorActivated = 1;
+	//point d arrivee de la barriere MotorStartBarrier
 	pthread_barrier_wait(&(MotorStartBarrier));
+	//destruction de la barriere
 	pthread_barrier_destroy(&MotorStartBarrier);
 	printf("%s MotorStart démarré\n", __FUNCTION__);
 	return 0;
 }
 
-
-
+/* @Fct int MotorStop (MotorStruct *Motor)
+ * Desactive le fanion MotorActivated qui aura pour effet de detruire la tache MotorTask
+ * et on detruit la semaphore de synchro MotorTimerSem
+ * ferme le lien avec le driver qui envoie les commandes aux moteurs
+*/
 int MotorStop (MotorStruct *Motor) {
-/* A faire! */
-/* Ici, vous devriez arrêter les moteurs et fermer le Port des moteurs. */ 
+
 	MotorActivated = 0;
+
+	//destruction du semaphore MotorTimerSem
 	sem_destroy(&MotorTimerSem);
+
+	//fermeture du lien vers pilote de moteur
 	if(close(Motor->file)!=0)
 		return -1;
 	else

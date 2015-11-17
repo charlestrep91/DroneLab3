@@ -69,6 +69,7 @@ void SigTimerHandler (int signo) {
 /* pour l'ensemble des Tâches du système.                                                       */
 /* Vous avez un exemple ci-dessous de comment utiliser ceci pour le Main et pour Mavlink.       */
 /* Il vous faudra ajouter ce qui convient pour les autres Tâches du système, selon les besoins. */
+
 	if (MavlinkActivated) {
 		if ((Period % MAVLINK_RECEIVE_PERIOD) == 0)
 			sem_post(&MavlinkReceiveTimerSem);
@@ -76,10 +77,13 @@ void SigTimerHandler (int signo) {
 			sem_post(&MavlinkStatusTimerSem);
 	}
 
+//post du semaphore pour le motor
 	if (MotorActivated) {
 		if ((Period % MOTOR_PERIOD) == 0)
 			sem_post(&MotorTimerSem);
 	}
+
+//Post des semaphores pour les sensors
 	if (SensorsActivated)
 	{
 		if ((Period % ACCEL_RATE) == 0)
@@ -93,11 +97,14 @@ void SigTimerHandler (int signo) {
 		if ((Period % MAGNETO_RATE) == 0)
 			sem_post(&SensorTab[MAGNETOMETRE].DataSem);
 	}
+
+//Post pour le semaphore de control
 	if(ControlActivated)
 	{
 		if ((Period % CONTROL_PERIOD) == 0)
 					sem_post(&ControlTimerSem);
 	}
+
 	if ((Period % MAIN_PERIOD) == 0)
 		sem_post (&MainTimerSem);
 	Period = (Period + 1) % MAX_PERIOD;
@@ -199,7 +206,7 @@ int main(int argc, char *argv[]) {
 	printf("%s ça démarre !!!\n", __FUNCTION__);
 
 	param.sched_priority = sched_get_priority_min(POLICY);
-   pthread_setschedparam(pthread_self(), POLICY, &param);
+    pthread_setschedparam(pthread_self(), POLICY, &param);
 
 	sem_init(&MainTimerSem, 0, 0);
 
@@ -227,26 +234,29 @@ int main(int argc, char *argv[]) {
 
 	printf("%s Tout initialisé\n", __FUNCTION__);
 
+	//demarrage des taches
 	StartTimer();
-
 	MotorStart();
 	SensorsStart();
 	AttitudeStart();
-
 	SensorsLogsStart();
-
 	MavlinkStart();
 //	ControlStart();
 
 	printf("%s Tout démarré\n", __FUNCTION__);
 
 	ch = 0;
+	//boucle qui attend le caractere q pour arreter le programme
 	while (ch != 'q') {
 		sem_wait(&MainTimerSem);
 		ch = tolower(getchar_nonblock());
+
+		//Partie du code qui permet d augmenter et de reduire la vitesse
+		//du moteur 1 a partir d une commande console + ou -
 		if(ch=='+')
 		{
 			pthread_spin_lock(&(Motor.MotorLock));
+			//verification pour empecher la valeur pwm de depasser la limite max
 			if(Motor.pwm[1]<0x1f0)
 				Motor.pwm[1]+=10;
 			pthread_spin_unlock(&(Motor.MotorLock));
@@ -254,6 +264,7 @@ int main(int argc, char *argv[]) {
 		if(ch=='-')
 		{
 			pthread_spin_lock(&(Motor.MotorLock));
+			//verification pour empecher la valeur pwm de tourner sur elle-meme
 			if(Motor.pwm[1]>=10)
 				Motor.pwm[1]-=10;
 			else
@@ -266,8 +277,8 @@ int main(int argc, char *argv[]) {
 	pthread_spin_destroy(&(AttitudeDesire.AttitudeLock));
 	pthread_spin_destroy(&(AttitudeMesure.AttitudeLock));
 
+	//arret des taches
 	ControlStop(&Control);
-
 	MotorStop(&Motor);
 	SensorsLogsStop(SensorTab);
 	SensorsStop(SensorTab);
