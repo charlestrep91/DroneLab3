@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
 	SensorsLogsStart();
 
 	MavlinkStart();
-	ControlStart();
+//	ControlStart();
 
 	printf("%s Tout démarré\n", __FUNCTION__);
 
@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
 	while (ch != 'q') {
 		sem_wait(&MainTimerSem);
 		ch = tolower(getchar_nonblock());
-	/*	if(ch=='+')
+		if(ch=='+')
 		{
 			pthread_spin_lock(&(Motor.MotorLock));
 			Motor.pwm[1]+=10;
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
 			pthread_spin_lock(&(Motor.MotorLock));
 			Motor.pwm[1]-=10;
 			pthread_spin_unlock(&(Motor.MotorLock));
-		}*/
+		}
 	}
 
 	MavlinkStop(&Mavlink);
