@@ -243,7 +243,7 @@ int ControlInit (ControlStruct *Control) {
 	pthread_attr_t		attr;
 	int					minprio, maxprio;
 	struct sched_param	param;
-
+	sem_init(&ControlTimerSem,0,0);
 	pthread_barrier_init(&ControlStartBarrier, NULL, 2);
 
 	pthread_attr_init(&attr);
@@ -283,6 +283,7 @@ int ControlStop (ControlStruct *Control) {
 /* Ici, vous devriez arrêter le contrôleur du drone.    */ 
 	//TODO add destroys
 	ControlActivated=0;
+	sem_destroy(&ControlTimerSem);
 	return 0;
 }
 

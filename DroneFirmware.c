@@ -93,6 +93,11 @@ void SigTimerHandler (int signo) {
 		if ((Period % MAGNETO_RATE) == 0)
 			sem_post(&SensorTab[MAGNETOMETRE].DataSem);
 	}
+	if(ControlActivated)
+	{
+		if ((Period % CONTROL_PERIOD) == 0)
+					sem_post(&ControlTimerSem);
+	}
 	if ((Period % MAIN_PERIOD) == 0)
 		sem_post (&MainTimerSem);
 	Period = (Period + 1) % MAX_PERIOD;
@@ -224,7 +229,7 @@ int main(int argc, char *argv[]) {
 
 	StartTimer();
 
-//	MotorStart();
+	MotorStart();
 	SensorsStart();
 	AttitudeStart();
 
@@ -239,7 +244,7 @@ int main(int argc, char *argv[]) {
 	while (ch != 'q') {
 		sem_wait(&MainTimerSem);
 		ch = tolower(getchar_nonblock());
-		if(ch=='+')
+	/*	if(ch=='+')
 		{
 			pthread_spin_lock(&(Motor.MotorLock));
 			Motor.pwm[1]+=10;
@@ -250,7 +255,7 @@ int main(int argc, char *argv[]) {
 			pthread_spin_lock(&(Motor.MotorLock));
 			Motor.pwm[1]-=10;
 			pthread_spin_unlock(&(Motor.MotorLock));
-		}
+		}*/
 	}
 
 	MavlinkStop(&Mavlink);
