@@ -247,13 +247,17 @@ int main(int argc, char *argv[]) {
 		if(ch=='+')
 		{
 			pthread_spin_lock(&(Motor.MotorLock));
-			Motor.pwm[1]+=10;
+			if(Motor.pwm[1]<0x1f0)
+				Motor.pwm[1]+=10;
 			pthread_spin_unlock(&(Motor.MotorLock));
 		}
 		if(ch=='-')
 		{
 			pthread_spin_lock(&(Motor.MotorLock));
-			Motor.pwm[1]-=10;
+			if(Motor.pwm[1]>=10)
+				Motor.pwm[1]-=10;
+			else
+				Motor.pwm[1]=0;
 			pthread_spin_unlock(&(Motor.MotorLock));
 		}
 	}
