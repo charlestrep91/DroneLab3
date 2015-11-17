@@ -240,8 +240,24 @@ int ControlInit (ControlStruct *Control) {
 /* les nouvelles vitesses des moteurs, basé sur l'attitude    */
 /* désirée du drone et son attitude actuelle (voir capteurs). */
 	//TODO add default configs
+	pthread_attr_t		attr;
+	int					minprio, maxprio;
+	struct sched_param	param;
+
 	pthread_barrier_init(&ControlStartBarrier, NULL, 2);
-	pthread_create(&Control->ControlThread, PTHREAD_CREATE_JOINABLE, ControlTask, (void *)Control);
+
+	pthread_attr_init(&attr);
+	pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+	minprio = sched_get_priority_min(POLICY);
+	maxprio = sched_get_priority_max(POLICY);
+	pthread_attr_setschedpolicy(&attr, POLICY);
+	param.sched_priority = minprio + (maxprio - minprio)/2;
+	pthread_attr_setstacksize(&attr, THREADSTACK);
+	pthread_attr_setschedparam(&attr, &param);
+
+	pthread_create(&Control->ControlThread,&attr, ControlTask, (void *)Control);
 	printf("ControlThread created...");
 
 	return 0;

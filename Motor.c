@@ -190,7 +190,7 @@ void *MotorTask ( void *ptr )
 	{
 		sem_wait(&MotorTimerSem);
 		pthread_spin_lock(&(Motor->MotorLock));
-//		motor_send(Motor,MOTOR_PWM_ONLY);
+		motor_send(Motor,MOTOR_PWM_ONLY);
 		pthread_spin_unlock(&(Motor->MotorLock));
 		SetLed(Motor->file, led);
 
