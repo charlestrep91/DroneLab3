@@ -23,6 +23,10 @@ extern uint8_t  SensorsActivated;
 uint8_t  LogActivated  	  	= 0;
 uint8_t  numLogOutput 	  	= 0;
 
+/*
+ * Tache generique pour la lecture des capteurs ansi que leur conversion.
+ * Informe les autres taches lorsqu'une nouvelle donnee a ete convertie.
+ */
 void *SensorTask ( void *ptr )
 {
 	SensorStruct *Sensor = (SensorStruct*)ptr;
@@ -32,18 +36,18 @@ void *SensorTask ( void *ptr )
 	uint32_t tempTimeDelay;
 
 	printf("SensorTask: %s task running...\n",Sensor->Name);
-	pthread_barrier_wait(&SensorStartBarrier);
+	pthread_barrier_wait(&SensorStartBarrier);							//on attend a la barriere pour un start
 
 	while(SensorsActivated)
 	{
-		sem_wait(&Sensor->DataSem);
-		pthread_spin_lock(&Sensor->DataLock);
-		result = read(Sensor->File, &(Sensor->RawData[Sensor->DataIdx]), sizeof(SensorRawData));
-		pthread_spin_unlock(&Sensor->DataLock);
+		sem_wait(&Sensor->DataSem);																	//attend le semaphore qui gere le timing dans DroneFirmware.c
+		pthread_spin_lock(&Sensor->DataLock);														//capture le spinlock pour que les donnees ne soient pas modifiees par une autre tache
+		result = read(Sensor->File, &(Sensor->RawData[Sensor->DataIdx]), sizeof(SensorRawData));	//fait la lecture des donnees brutes du sensor et les place dans le tableau RawData
+		pthread_spin_unlock(&Sensor->DataLock);														//libere le spinlock
 
-		if(result == sizeof(SensorRawData))	//check if received entire structure of data
+		if(result == sizeof(SensorRawData))															//verifie si la structure complete a bien ete copiee
 		{
-			if(Sensor->RawData[Sensor->DataIdx].status == NEW_SAMPLE)
+			if(Sensor->RawData[Sensor->DataIdx].status == NEW_SAMPLE)								//verifie si la donnee est nouvelle
 			{
 				//check if RawData samples have been missed
 				//TODO check sample #
@@ -52,33 +56,32 @@ void *SensorTask ( void *ptr )
 
 				for(i=0; i<3; i++)
 				{
-					tempData[i] = (double)Sensor->RawData[Sensor->DataIdx].data[i];
-					tempData[i] = tempData[i] * Sensor->Param->Conversion;
+					tempData[i] = (double)Sensor->RawData[Sensor->DataIdx].data[i];					//fait une copie dans une variable locale
+					tempData[i] = tempData[i] * Sensor->Param->Conversion;							//applique le facteur de conversion du sensor
 				}
 
-				//calculates delay between samples using timestamps
+				//calcule le delai entre deux echantillons en utilisant les timestamps
 				tempTimeDelay = ((Sensor->RawData[Sensor->DataIdx].timestamp_s - Sensor->RawData[(Sensor->DataIdx - 1)].timestamp_s) * 1000000000) + (Sensor->RawData[Sensor->DataIdx].timestamp_n - Sensor->RawData[(Sensor->DataIdx - 1)].timestamp_n);
 
-				//update Data buffer
-				pthread_spin_lock(&Sensor->DataLock);
-				Sensor->Data[Sensor->DataIdx].Data[0] = tempData[0];
+				pthread_spin_lock(&Sensor->DataLock);												//capture le spinlock
+				Sensor->Data[Sensor->DataIdx].Data[0] = tempData[0];								//met a jour les donnees converties du sensor
 				Sensor->Data[Sensor->DataIdx].Data[1] = tempData[1];
 				Sensor->Data[Sensor->DataIdx].Data[2] = tempData[2];
-				Sensor->Data[Sensor->DataIdx].TimeDelay = tempTimeDelay;
-				pthread_spin_unlock(&Sensor->DataLock);
+				Sensor->Data[Sensor->DataIdx].TimeDelay = tempTimeDelay;							//met a jour le delai entre les echantillons
+				pthread_spin_unlock(&Sensor->DataLock);												//libere le semaphore
 
-				if((Sensor->DataIdx % 25) == 0 && Sensor->type == ACCELEROMETRE)
-				{
+//				if((Sensor->DataIdx % 25) == 0 && Sensor->type == ACCELEROMETRE)					//sert a imprimer une donnee
+//				{
 //					printf("SensorTask: TimeDelay# = %u\n", tempTimeDelay);
 //					printf("SensorTask: 	Data0: %f	Data1: %f 	Data2: %f\n", Sensor->Data[Sensor->DataIdx].Data[0], Sensor->Data[Sensor->DataIdx].Data[1], Sensor->Data[Sensor->DataIdx].Data[2]);
 //					printf("SensorTask: 	Data0: %d	Data1: %d 	Data2: %d\n", Sensor->RawData[Sensor->DataIdx].data[0], Sensor->RawData[Sensor->DataIdx].data[1], Sensor->RawData[Sensor->DataIdx].data[2]);
-				}
-				//increment Data buffer index
-				Sensor->DataIdx = ((Sensor->DataIdx+1) + DATABUFSIZE) % DATABUFSIZE;
+//				}
 
-				pthread_mutex_lock(&(Sensor->DataSampleMutex));
-				pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
-				pthread_mutex_unlock(&(Sensor->DataSampleMutex));
+				Sensor->DataIdx = ((Sensor->DataIdx+1) + DATABUFSIZE) % DATABUFSIZE;				//incremente l'index du buffer de donnees
+
+				pthread_mutex_lock(&(Sensor->DataSampleMutex));										//capture le mutex
+				pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));							//informe les autres taches qu'une nouvelle donnee a ete convertie
+				pthread_mutex_unlock(&(Sensor->DataSampleMutex));									//libere le mutex
 			}
 			else if(Sensor->RawData[Sensor->DataIdx].status == NEW_SAMPLE)
 			{
@@ -94,14 +97,12 @@ void *SensorTask ( void *ptr )
 	pthread_exit(0); /* exit thread */
 }
 
-
+/*
+ * Creation des taches de chaque capteur ainsi que l'initialisation de leurs
+ * spinlocks et semaphores.
+ */
 int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 {
-/* A faire! */
-/* Ici, vous devriez faire l'initialisation de chacun des capteurs.  */
-/* C'est-à-dire de faire les initialisations requises, telles que    */
-/* ouvrir les fichiers des capteurs, et de créer les Tâches qui vont */
-/* s'occuper de réceptionner les échantillons des capteurs.          */
 	int i;
 	int minprio,maxprio;
 	struct sched_param param;
@@ -110,6 +111,7 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 	printf("SensorInit...\n");
 	pthread_barrier_init(&SensorStartBarrier, NULL, NUM_SENSOR+1);
 
+	//configuration des attribus de la tache
 	pthread_attr_init(&attr);
 	pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -121,17 +123,17 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 	pthread_attr_setstacksize(&attr, THREADSTACK);
 	pthread_attr_setschedparam(&attr, &param);
 
-	for(i=0; i<NUM_SENSOR; i++)
+	for(i=0; i<NUM_SENSOR; i++)																	//Selon le nombre de capteurs, cree une tache pour chacun d'eux
 	{
-		SensorTab[i].File = open(SensorTab[i].DevName, O_RDONLY);
+		SensorTab[i].File = open(SensorTab[i].DevName, O_RDONLY);								//attribue le fichier de lecture du capteur a sa structure
 		if (SensorTab[i].File < 0)
 		{
 			printf("SensorInit: Impossible d'ouvrir le fichier %s\n",SensorTab[i].DevName);
 			return SensorTab[i].File;
 		}
-		sem_init(&SensorTab[i].DataSem,0,0);
-		pthread_spin_init(&SensorTab[i].DataLock,0);
-		pthread_create(&SensorTab[i].SensorThread, &attr, SensorTask, (void *)&SensorTab[i]);
+	sem_init(&SensorTab[i].DataSem,0,0);														//initialisation du semaphore du capteur
+		pthread_spin_init(&SensorTab[i].DataLock,0);											//initialisation du spinlock du capteur
+		pthread_create(&SensorTab[i].SensorThread, &attr, SensorTask, (void *)&SensorTab[i]);	//creation de la tache du capteur
 		SensorTab[i].DataIdx = 0;
 	}
 	printf("SensorInit finished...\n");
@@ -139,12 +141,12 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR])
 	return 0;
 };
 
-
+/*
+ * Active la variable d'activation des capteurs.
+ * Attends les taches des capteurs a l'aide de la barriere.
+ * Detruit la barriere.
+ */
 int SensorsStart (void) {
-/* A faire! */
-/* Ici, vous devriez démarrer l'acquisition sur les capteurs.        */ 
-/* Les capteurs ainsi que tout le reste du système devrait être      */
-/* prêt à faire leur travail et il ne reste plus qu'à tout démarrer. */
 
 	SensorsActivated = 1;
 	pthread_barrier_wait(&SensorStartBarrier);
@@ -153,7 +155,11 @@ int SensorsStart (void) {
 	return 0;
 }
 
-
+/*
+ * Desactive la variable d'activation des capteurs.
+ * Pour chaque capteur, detruit le spinlock et le semaphore
+ * puis ferme le fichier de lecture du capteur.
+ */
 int SensorsStop (SensorStruct SensorTab[NUM_SENSOR]) {
 	int i, err;
 
