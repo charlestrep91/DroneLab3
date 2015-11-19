@@ -73,13 +73,6 @@ void *SensorTask ( void *ptr )
 				Sensor->Data[Sensor->DataIdx].TimeDelay = tempTimeDelay;							//met a jour le delai entre les echantillons
 				pthread_spin_unlock(&Sensor->DataLock);												//libere le semaphore
 
-//				if((Sensor->DataIdx % 25) == 0 && Sensor->type == ACCELEROMETRE)					//sert a imprimer une donnee
-//				{
-//					printf("SensorTask: TimeDelay# = %u\n", tempTimeDelay);
-//					printf("SensorTask: 	Data0: %f	Data1: %f 	Data2: %f\n", Sensor->Data[Sensor->DataIdx].Data[0], Sensor->Data[Sensor->DataIdx].Data[1], Sensor->Data[Sensor->DataIdx].Data[2]);
-//					printf("SensorTask: 	Data0: %d	Data1: %d 	Data2: %d\n", Sensor->RawData[Sensor->DataIdx].data[0], Sensor->RawData[Sensor->DataIdx].data[1], Sensor->RawData[Sensor->DataIdx].data[2]);
-//				}
-
 				Sensor->DataIdx = ((Sensor->DataIdx+1) + DATABUFSIZE) % DATABUFSIZE;				//incremente l'index du buffer de donnees
 
 				pthread_mutex_lock(&(Sensor->DataSampleMutex));										//capture le mutex
