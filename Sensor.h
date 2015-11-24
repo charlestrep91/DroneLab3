@@ -94,8 +94,8 @@ typedef struct Sensor_struct {
 #define ACCEL_PARAM { .AbsErrorMax 	        = 25, \
 		 	 	 	  .RelErrorMax   		= 25, \
 		 	 	 	  .minVal 		 		= 0.0, \
-		 	 	 	  .centerVal 	 		= 2048.0, \
-		 	 	 	  .maxVal 		 		= 4095.0, \
+		 	 	 	  .centerVal 	 		= 19.6133, \
+		 	 	 	  .maxVal 		 		= 39.2266, \	//TODO mettre valeur p.40 notes du cours 4
 					  .Conversion 	 		= 4.0*9.80665/2048.0, \
 					  .alpha 		 		= {{0.98081557, -0.05644951, -0.02957259},{-0.05646295, 0.98907009, -0.03478460},{-0.02957224, -0.03477524, 1.02502064}}, \
 					  .beta 		 		= {-0.03472795, -0.00820768, 0.01836154} \
@@ -103,9 +103,9 @@ typedef struct Sensor_struct {
 
 #define GYRO_PARAM { .AbsErrorMax		   = 25, \
 	 	 	 	 	 .RelErrorMax		   = 25, \
-	 	 	 	 	 .minVal			   = -4096.0, \
+	 	 	 	 	 .minVal			   = -4.366, \		//TODO verifier s'il faut utiliser le max du sensor
 	 	 	 	 	 .centerVal			   = 0.0, \
-	 	 	 	 	 .maxVal			   = 4095.0, \
+	 	 	 	 	 .maxVal			   = 4.364, \
 	 	 	 	 	 .Conversion		   = M_PI/(180.0*16.375), \
 	 	 	 	 	 .alpha				   = {{1.0, 0.0, 0.0},{0.0, 1.0, 0.0},{0.0, 0.0, 1.0}}, \
 	 	 	 	 	 .beta				   = {0.0, 0.0, 0.0} \
@@ -133,9 +133,9 @@ typedef struct Sensor_struct {
 
 #define MAGNETO_PARAM { .AbsErrorMax  		  = 25, \
 						.RelErrorMax  		  = 25, \
-						.minVal		  		  = -300.0, \
+						.minVal		  		  = -0.552, \
 						.centerVal	  		  = 0.0, \
-						.maxVal		  		  = 300.0, \
+						.maxVal		  		  = 0.552, \
 						.Conversion	  		  = 12.0/4096.0, \
 						.alpha		  		  = {{2.11841928, 0.00351888, 0.00397052},{0.00331451, 2.07320710, -0.01264231},{0.00518187, -0.00926185, 2.32147984}}, \
 						.beta		  		  = {-0.12157171, -0.16832892, -1.31929740}, \
