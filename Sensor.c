@@ -67,9 +67,13 @@ void *SensorTask ( void *ptr )
 				tempTimeDelay = ((Sensor->RawData[Sensor->DataIdx].timestamp_s - Sensor->RawData[(Sensor->DataIdx - 1)].timestamp_s) * 1000000000) + (Sensor->RawData[Sensor->DataIdx].timestamp_n - Sensor->RawData[(Sensor->DataIdx - 1)].timestamp_n);
 
 				pthread_spin_lock(&Sensor->DataLock);												//capture le spinlock
-				Sensor->Data[Sensor->DataIdx].Data[0] = tempData[0];								//met a jour les donnees converties du sensor
-				Sensor->Data[Sensor->DataIdx].Data[1] = tempData[1];
-				Sensor->Data[Sensor->DataIdx].Data[2] = tempData[2];
+				for(i=0; i<3; i++)
+				{
+					if((tempData[i] > Sensor->Param->minVal) && (tempData[i] < Sensor->Param->maxVal))	//si la valeur calculee est valide
+						Sensor->Data[Sensor->DataIdx].Data[i] = tempData[i];						//affecte la valeur calculee
+					else
+						Sensor->Data[Sensor->DataIdx].Data[i] = Sensor->Data[Sensor->DataIdx - 1].Data[i];	//affecte la valeur precedente
+				}
 				Sensor->Data[Sensor->DataIdx].TimeDelay = tempTimeDelay;							//met a jour le delai entre les echantillons
 				pthread_spin_unlock(&Sensor->DataLock);												//libere le semaphore
 
